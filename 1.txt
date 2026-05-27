@@ -1,0 +1,60 @@
+Los 8 pasos del script y su justificación:
+[1] Self-loops (3,973 aristas) — segmentos donde from_id == to_id. Son artefactos del proceso de extracción SHP donde la geometría empieza y termina en el mismo punto. No aportan conectividad al grafo y rompen Dijkstra.
+[2] Distancia ≤ 0 (0 casos) — se verifica por completitud; una arista con distancia nula es matemáticamente inválida como peso.
+[3] Duplicados (from, to) (354 aristas) — cuando dos osm_id distintos conectan el mismo par de nodos, se conserva el de menor distancia (el camino más corto real entre esos puntos).
+[4] Normalización oneway — el campo puede venir como 0/1, yes/no, true/false. Se estandariza a 0/1 para que el grafo maneje correctamente la direccionalidad.
+[5] Imputación maxspeed (519,416 aristas sin velocidad) — el 88% de las aristas no tenía velocidad registrada. Se imputa usando una tabla de velocidades estándar por tipo de vía (fclass), por ejemplo: motorway→100, primary→60, residential→30.
+[6] Columna time_s — se calcula el tiempo de recorrido en segundos: (distance_m / 1000) / maxspeed * 3600. Esto habilita el BONUS de comparar ruta por distancia vs. por tiempo.
+[7] Nodos huérfanos (3,004 nodos) — nodos que quedaron sin ninguna arista válida después de la limpieza anterior. No tienen rol en el grafo.
+[8] Coordenadas fuera de Bolivia (0 casos) — verificación de rango para EPSG:32719. En este dataset todas caen dentro del territorio.
+
+
+
+> /usr/bin/python /home/Pololi15/Documentos/Universidad/7_Semestre/INGENIERIA_DE_DATOS/P1/Analisis/limpieza.py
+=======================================================
+REPORTE DE LIMPIEZA — RED VIAL BOLIVIA
+=======================================================
+
+[ANTES] Nodos: 886,790  |  Aristas: 588,485
+
+[1] Self-loops eliminados          :    3,973
+[2] Aristas con distance_m ≤ 0     :        0
+[3] Duplicados (from,to) eliminados:      354
+[4] oneway normalizado a 0/1       : ok  (oneway=1: 20)
+[5] maxspeed imputados (eran 0)    :  519,416
+[6] Columna time_s calculada       : ok
+[7] Nodos huérfanos eliminados     :    3,004
+[8] Nodos fuera de Bolivia         :        0
+    Aristas eliminadas por esto    :        0
+
+=======================================================
+RESUMEN
+=======================================================
+  Nodos  antes :    886,790
+  Nodos  después:    883,786  (3,004 eliminados, 0.3%)
+  Aristas antes :    588,485
+  Aristas después:   584,158  (4,327 eliminadas, 0.7%)
+
+  Columnas edges limpias: ['osm_id', 'from_id', 'to_id', 'distance_m', 'fclass', 'oneway', 'maxspeed', 'time_s']
+  fclass más frecuentes:
+fclass
+residential     170707
+track_grade3    121436
+unclassified     65236
+service          45459
+footway          35008
+
+  maxspeed promedio por fclass (muestra):
+fclass
+motorway_link    80.0
+motorway         80.0
+trunk            75.7
+trunk_link       60.4
+primary          59.1
+secondary        51.8
+primary_link     49.8
+tertiary         41.6
+
+Archivos guardados: edges_clean.csv  |  nodes_clean.csv
+~/Documentos/Universidad/7_Semestre/INGENIERIA_DE_DATOS/P1/Analisis                                                                                                                                         14s
+> 
