@@ -1,5 +1,8 @@
 #include "grafo.h"
 
+#include <chrono>
+#include <unordered_map>
+
 namespace {
     const vector<Arista> vecinosVacios;
 }
@@ -253,4 +256,77 @@ ResultadoRuta Grafo::rutaMasCortaPorDistancia(int origen, int destino)  {
 
 ResultadoRuta Grafo::rutaMasRapidaPorTiempo(int origen, int destino)  {
     return dijkstraGeneral(origen, destino, true);
+}
+
+ResultadoAlcance Grafo::alcanceVehicular(int origen, double radioMetros) {
+    ResultadoAlcance resultado;
+    resultado.nodoOrigen = origen;
+    resultado.radioMetros = radioMetros;
+    resultado.nodosAlcanzables = 0;
+    resultado.distanciaMaxima = 0.0;
+    resultado.distanciaPromedio = 0.0;
+    resultado.tiempoMs = 0.0;
+
+    auto inicio = chrono::high_resolution_clock::now();
+
+    if (!existeNodo(origen) || radioMetros < 0.0) {
+        auto fin = chrono::high_resolution_clock::now();
+        resultado.tiempoMs = chrono::duration<double, std::milli>(fin - inicio).count();
+        return resultado;
+    }
+
+    unordered_map<int, double> distancias;
+    distancias.reserve(adyacencia.size());
+
+    priority_queue<pair<double, int>, vector<pair<double, int>>, greater<pair<double, int>>> colaPrioridad;
+
+    distancias[origen] = 0.0;
+    colaPrioridad.push({0.0, origen});
+
+    while (!colaPrioridad.empty()) {
+        double costoActual = colaPrioridad.top().first;
+        int nodoActual = colaPrioridad.top().second;
+        colaPrioridad.pop();
+
+        auto itCosto = distancias.find(nodoActual);
+        if (itCosto == distancias.end() || costoActual > itCosto->second) {
+            continue;
+        }
+
+        for (const Arista& arista : getVecinos(nodoActual)) {
+            double nuevoCosto = costoActual + arista.distanciaMetros;
+
+            if (nuevoCosto > radioMetros) {
+                continue;
+            }
+
+            auto itVecino = distancias.find(arista.destino);
+            if (itVecino == distancias.end() || nuevoCosto < itVecino->second) {
+                distancias[arista.destino] = nuevoCosto;
+                colaPrioridad.push({nuevoCosto, arista.destino});
+            }
+        }
+    }
+
+    double sumaDistancias = 0.0;
+    double distanciaMaxima = 0.0;
+
+    for (const auto& par : distancias) {
+        sumaDistancias += par.second;
+        if (par.second > distanciaMaxima) {
+            distanciaMaxima = par.second;
+        }
+    }
+
+    auto fin = chrono::high_resolution_clock::now();
+
+    resultado.distancias = std::move(distancias);
+    resultado.nodosAlcanzables = static_cast<int>(resultado.distancias.size());
+    resultado.distanciaMaxima = distanciaMaxima;
+    resultado.distanciaPromedio = resultado.nodosAlcanzables > 0
+        ? sumaDistancias / static_cast<double>(resultado.nodosAlcanzables)
+        : 0.0;
+    resultado.tiempoMs = chrono::duration<double, std::milli>(fin - inicio).count();
+
+    return resultado;
 }

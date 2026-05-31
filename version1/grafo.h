@@ -2,6 +2,7 @@
 #define GRAFO_H
 
 #include <algorithm>
+#include <chrono>
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -10,6 +11,7 @@
 #include <queue>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 using namespace std;
@@ -28,6 +30,16 @@ struct ResultadoRuta {
     vector<int> camino;
     double costoTotal;
     bool existeRuta;
+};
+
+struct ResultadoAlcance {
+    int nodoOrigen;
+    double radioMetros;
+    unordered_map<int, double> distancias;
+    int nodosAlcanzables;
+    double distanciaMaxima;
+    double distanciaPromedio;
+    double tiempoMs;
 };
 
 class Grafo {
@@ -65,6 +77,7 @@ public:
     const map<int, vector<Arista>>& getAdyacencia() ;
     ResultadoRuta rutaMasCortaPorDistancia(int origen, int destino) ;
     ResultadoRuta rutaMasRapidaPorTiempo(int origen, int destino) ;
+    ResultadoAlcance alcanceVehicular(int origen, double radioMetros = 5000.0);
 };
 
 #endif
