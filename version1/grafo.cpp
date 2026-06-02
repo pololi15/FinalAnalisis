@@ -195,7 +195,7 @@ vector<int> Grafo::encontrarIslasViales() {
     vector<vector<int>> componentes = obtenerComponentesDebiles();
 
     for (const vector<int>& componente : componentes) {
-        tamanosIslas.push_back(static_cast<int>(componente.size()));
+        tamanosIslas.push_back(componente.size());
     }
 
     return tamanosIslas;
