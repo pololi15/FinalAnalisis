@@ -1,5 +1,8 @@
 #include "grafo.h"
 
+#include <chrono>
+#include <unordered_map>
+
 namespace {
     const vector<Arista> vecinosVacios;
 }
@@ -275,6 +278,187 @@ ResultadoDijkstra Grafo::dijkstraDistanciasDesde(int origen) {
             }
         }
     }
+
+    return resultado;
+}
+
+ResultadoRuta Grafo::dijkstraGeneral(int origen, int destino, bool porTiempo) {
+    ResultadoRuta resultado;
+    resultado.existe = false;
+
+    if (!existeNodo(origen) || !existeNodo(destino)) {
+        return resultado;
+    }
+
+    unordered_map<int, double> distancias;
+    unordered_map<int, int> anteriores;
+
+    for (const auto& nodoConAristas : adyacencia) {
+        distancias[nodoConAristas.first] = numeric_limits<double>::infinity();
+    }
+
+    distancias[origen] = 0.0;
+
+    priority_queue<pair<double, int>, vector<pair<double, int>>, greater<pair<double, int>>> cola;
+    cola.push({0.0, origen});
+
+    while (!cola.empty()) {
+        double costoActual = cola.top().first;
+        int nodoActual = cola.top().second;
+        cola.pop();
+
+        auto it = distancias.find(nodoActual);
+        if (it == distancias.end() || costoActual > it->second) {
+            continue;
+        }
+
+        if (nodoActual == destino) {
+            break;
+        }
+
+        for (const Arista& arista : getVecinos(nodoActual)) {
+            double peso = porTiempo ? arista.tiempoSegundos : arista.distanciaMetros;
+            double nuevoCosto = costoActual + peso;
+
+            auto itVec = distancias.find(arista.destino);
+            if (itVec == distancias.end() || nuevoCosto < itVec->second) {
+                distancias[arista.destino] = nuevoCosto;
+                anteriores[arista.destino] = nodoActual;
+                cola.push({nuevoCosto, arista.destino});
+            }
+        }
+    }
+
+    auto itDestino = distancias.find(destino);
+    if (itDestino == distancias.end() || itDestino->second == numeric_limits<double>::infinity()) {
+        return resultado;
+    }
+
+    // Reconstruir ruta
+    vector<int> ruta;
+    int actual = destino;
+    ruta.push_back(actual);
+    while (actual != origen) {
+        auto itAnt = anteriores.find(actual);
+        if (itAnt == anteriores.end()) {
+            // No hay camino
+            resultado.existe = false;
+            return resultado;
+        }
+        actual = itAnt->second;
+        ruta.push_back(actual);
+    }
+
+    reverse(ruta.begin(), ruta.end());
+
+    // Calcular distancia total y tiempo total recorriendo la ruta
+    double distanciaTotal = 0.0;
+    double tiempoTotal = 0.0;
+
+    for (size_t i = 0; i + 1 < ruta.size(); ++i) {
+        int u = ruta[i];
+        int v = ruta[i + 1];
+        bool encontrado = false;
+
+        for (const Arista& ar : getVecinos(u)) {
+            if (ar.destino == v) {
+                distanciaTotal += ar.distanciaMetros;
+                tiempoTotal += ar.tiempoSegundos;
+                encontrado = true;
+                break;
+            }
+        }
+
+        if (!encontrado) {
+            // Si no encontramos la arista, seguiremos con lo que tengamos
+            continue;
+        }
+    }
+
+    resultado.ruta = std::move(ruta);
+    resultado.distanciaTotal = distanciaTotal;
+    resultado.tiempoTotal = tiempoTotal;
+    resultado.existe = true;
+
+    return resultado;
+}
+ResultadoRuta Grafo::rutaMasCortaPorDistancia(int origen, int destino)  {
+    return dijkstraGeneral(origen, destino, false);
+}
+
+ResultadoRuta Grafo::rutaMasRapidaPorTiempo(int origen, int destino)  {
+    return dijkstraGeneral(origen, destino, true);
+}
+
+ResultadoAlcance Grafo::alcanceVehicular(int origen, double radioMetros) {
+    ResultadoAlcance resultado;
+    resultado.nodoOrigen = origen;
+    resultado.radioMetros = radioMetros;
+    resultado.nodosAlcanzables = 0;
+    resultado.distanciaMaxima = 0.0;
+    resultado.distanciaPromedio = 0.0;
+    resultado.tiempoMs = 0.0;
+
+    auto inicio = chrono::high_resolution_clock::now();
+
+    if (!existeNodo(origen) || radioMetros < 0.0) {
+        auto fin = chrono::high_resolution_clock::now();
+        resultado.tiempoMs = chrono::duration<double, std::milli>(fin - inicio).count();
+        return resultado;
+    }
+
+    unordered_map<int, double> distancias;
+    distancias.reserve(adyacencia.size());
+
+    priority_queue<pair<double, int>, vector<pair<double, int>>, greater<pair<double, int>>> colaPrioridad;
+
+    distancias[origen] = 0.0;
+    colaPrioridad.push({0.0, origen});
+
+    while (!colaPrioridad.empty()) {
+        double costoActual = colaPrioridad.top().first;
+        int nodoActual = colaPrioridad.top().second;
+        colaPrioridad.pop();
+
+        auto itCosto = distancias.find(nodoActual);
+        if (itCosto == distancias.end() || costoActual > itCosto->second) {
+            continue;
+        }
+
+        for (const Arista& arista : getVecinos(nodoActual)) {
+            double nuevoCosto = costoActual + arista.distanciaMetros;
+
+            if (nuevoCosto > radioMetros) {
+                continue;
+            }
+
+            auto itVecino = distancias.find(arista.destino);
+            if (itVecino == distancias.end() || nuevoCosto < itVecino->second) {
+                distancias[arista.destino] = nuevoCosto;
+                colaPrioridad.push({nuevoCosto, arista.destino});
+            }
+        }
+    }
+
+    double sumaDistancias = 0.0;
+    double distanciaMaxima = 0.0;
+
+    for (const auto& par : distancias) {
+        sumaDistancias += par.second;
+        if (par.second > distanciaMaxima) {
+            distanciaMaxima = par.second;
+        }
+    }
+
+    auto fin = chrono::high_resolution_clock::now();
+
+    resultado.distancias = std::move(distancias);
+    resultado.nodosAlcanzables = static_cast<int>(resultado.distancias.size());
+    resultado.distanciaMaxima = distanciaMaxima;
+    resultado.distanciaPromedio = resultado.nodosAlcanzables > 0
+        ? sumaDistancias / static_cast<double>(resultado.nodosAlcanzables)
+        : 0.0;
+    resultado.tiempoMs = chrono::duration<double, std::milli>(fin - inicio).count();
 
     return resultado;
 }
