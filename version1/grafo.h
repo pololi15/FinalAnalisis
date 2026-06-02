@@ -24,10 +24,9 @@ struct Arista {
     long long idOsm;
 };
 
-struct ResultadoRuta {
-    vector<int> camino;
-    double costoTotal;
-    bool existeRuta;
+struct ResultadoDijkstra {
+    map<int, double> distancias;
+    map<int, int> anteriores;
 };
 
 class Grafo {
@@ -37,8 +36,13 @@ private:
     map<int, bool> visitados;
     int cantidadAristasOriginales;
 
+    void limpiarEstructuras();
     void reiniciarVisitados();
-    ResultadoRuta dijkstraGeneral(int origen, int destino, bool usarTiempo) ;
+    void registrarNodo(int nodo);
+    void leerNodosCSV(const string& nombreArchivo);
+    void cargarAristasCSV(const string& nombreArchivo);
+    vector<vector<int>> obtenerComponentesDebiles();
+    const vector<Arista>& getVecinos(int nodo);
 
 public:
     Grafo();
@@ -54,17 +58,14 @@ public:
         long long idOsm
     );
 
-    void leerCSV(const string& nombreArchivo);
-    int bfs(int inicio);
+    void leerCSVs(const string& archivoNodos, const string& archivoAristas);
     vector<int> encontrarIslasViales();
+    vector<int> obtenerComponenteGigante();
     bool existeNodo(int nodo) ;
     int cantidadNodos() ;
     int cantidadAristas() ;
-    vector<int> obtenerNodos() ;
-    const vector<Arista>& getVecinos(int nodo) ;
     const map<int, vector<Arista>>& getAdyacencia() ;
-    ResultadoRuta rutaMasCortaPorDistancia(int origen, int destino) ;
-    ResultadoRuta rutaMasRapidaPorTiempo(int origen, int destino) ;
+    ResultadoDijkstra dijkstraDistanciasDesde(int origen);
 };
 
 #endif

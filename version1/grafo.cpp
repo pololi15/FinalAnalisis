@@ -8,12 +8,25 @@ Grafo::Grafo() {
     cantidadAristasOriginales = 0;
 }
 
+void Grafo::limpiarEstructuras() {
+    adyacencia.clear();
+    conectividad.clear();
+    visitados.clear();
+    cantidadAristasOriginales = 0;
+}
+
 void Grafo::reiniciarVisitados() {
     visitados.clear();
 
     for (const auto& nodoConAristas : conectividad) {
         visitados[nodoConAristas.first] = false;
     }
+}
+
+void Grafo::registrarNodo(int nodo) {
+    adyacencia[nodo];
+    conectividad[nodo];
+    visitados[nodo] = false;
 }
 
 void Grafo::agregarArista(
@@ -26,6 +39,9 @@ void Grafo::agregarArista(
     const string& tipoVia,
     long long idOsm
 ) {
+    registrarNodo(origen);
+    registrarNodo(destino);
+
     Arista arista;
     arista.destino = destino;
     arista.distanciaMetros = distanciaMetros;
@@ -48,7 +64,7 @@ void Grafo::agregarArista(
     }
 }
 
-void Grafo::leerCSV(const string& nombreArchivo) {
+void Grafo::leerNodosCSV(const string& nombreArchivo) {
     ifstream archivo(nombreArchivo);
 
     if (!archivo.is_open()) {
@@ -56,10 +72,34 @@ void Grafo::leerCSV(const string& nombreArchivo) {
         return;
     }
 
-    adyacencia.clear();
-    conectividad.clear();
-    visitados.clear();
-    cantidadAristasOriginales = 0;
+    string linea;
+    getline(archivo, linea);
+
+    while (getline(archivo, linea)) {
+        stringstream separador(linea);
+        vector<string> columnas;
+        string valorTexto;
+
+        while (getline(separador, valorTexto, ',')) {
+            columnas.push_back(valorTexto);
+        }
+
+        if (columnas.size() < 1) {
+            continue;
+        }
+
+        int nodeId = stoi(columnas[0]);
+        registrarNodo(nodeId);
+    }
+}
+
+void Grafo::cargarAristasCSV(const string& nombreArchivo) {
+    ifstream archivo(nombreArchivo);
+
+    if (!archivo.is_open()) {
+        cerr << "Error: No se pudo abrir el archivo " << nombreArchivo << endl;
+        return;
+    }
 
     string linea;
     getline(archivo, linea);
@@ -103,48 +143,75 @@ void Grafo::leerCSV(const string& nombreArchivo) {
             cout << "  [CSV] Procesadas " << cantidadAristasOriginales << " aristas..." << endl;
         }
     }
+}
+
+void Grafo::leerCSVs(const string& archivoNodos, const string& archivoAristas) {
+    limpiarEstructuras();
+    leerNodosCSV(archivoNodos);
+    cargarAristasCSV(archivoAristas);
 
     reiniciarVisitados();
+    cout << "  [CSV] Total de nodos cargados: " << cantidadNodos() << endl;
     cout << "  [CSV] Total de aristas cargadas: " << cantidadAristasOriginales << endl;
 }
 
-int Grafo::bfs(int inicio) {
-    queue<int> cola;
-    visitados[inicio] = true;
-    cola.push(inicio);
+vector<vector<int>> Grafo::obtenerComponentesDebiles() {
+    vector<vector<int>> componentes;
+    reiniciarVisitados();
 
-    int tamanoIsla = 0;
+    for (const auto& nodoConVecinos : conectividad) {
+        int nodoInicio = nodoConVecinos.first;
 
-    while (!cola.empty()) {
-        int nodoActual = cola.front();
-        cola.pop();
-        tamanoIsla++;
+        if (visitados[nodoInicio]) {
+            continue;
+        }
 
-        for (int vecino : conectividad[nodoActual]) {
-            if (!visitados[vecino]) {
-                visitados[vecino] = true;
-                cola.push(vecino);
+        vector<int> componenteActual;
+        queue<int> cola;
+        visitados[nodoInicio] = true;
+        cola.push(nodoInicio);
+
+        while (!cola.empty()) {
+            int nodoActual = cola.front();
+            cola.pop();
+            componenteActual.push_back(nodoActual);
+
+            for (int vecino : conectividad[nodoActual]) {
+                if (!visitados[vecino]) {
+                    visitados[vecino] = true;
+                    cola.push(vecino);
+                }
             }
         }
+
+        componentes.push_back(componenteActual);
     }
 
-    return tamanoIsla;
+    return componentes;
 }
 
 vector<int> Grafo::encontrarIslasViales() {
     vector<int> tamanosIslas;
-    reiniciarVisitados();
+    vector<vector<int>> componentes = obtenerComponentesDebiles();
 
-    for (const auto& nodoConVecinos : conectividad) {
-        int nodo = nodoConVecinos.first;
-
-        if (!visitados[nodo]) {
-            int tamanoIsla = bfs(nodo);
-            tamanosIslas.push_back(tamanoIsla);
-        }
+    for (const vector<int>& componente : componentes) {
+        tamanosIslas.push_back(static_cast<int>(componente.size()));
     }
 
     return tamanosIslas;
+}
+
+vector<int> Grafo::obtenerComponenteGigante() {
+    vector<vector<int>> componentes = obtenerComponentesDebiles();
+    vector<int> componenteGigante;
+
+    for (const vector<int>& componente : componentes) {
+        if (componente.size() > componenteGigante.size()) {
+            componenteGigante = componente;
+        }
+    }
+
+    return componenteGigante;
 }
 
 bool Grafo::existeNodo(int nodo)  {
@@ -159,17 +226,7 @@ int Grafo::cantidadAristas()  {
     return cantidadAristasOriginales;
 }
 
-vector<int> Grafo::obtenerNodos()  {
-    vector<int> nodos;
-
-    for (const auto& nodoConAristas : adyacencia) {
-        nodos.push_back(nodoConAristas.first);
-    }
-
-    return nodos;
-}
-
-const vector<Arista>& Grafo::getVecinos(int nodo)  {
+const vector<Arista>& Grafo::getVecinos(int nodo) {
     auto iterador = adyacencia.find(nodo);
 
     if (iterador == adyacencia.end()) {
@@ -183,24 +240,20 @@ const map<int, vector<Arista>>& Grafo::getAdyacencia()  {
     return adyacencia;
 }
 
-ResultadoRuta Grafo::dijkstraGeneral(int origen, int destino, bool usarTiempo)  {
-    ResultadoRuta resultado;
-    resultado.costoTotal = numeric_limits<double>::infinity();
-    resultado.existeRuta = false;
+ResultadoDijkstra Grafo::dijkstraDistanciasDesde(int origen) {
+    ResultadoDijkstra resultado;
 
-    if (!existeNodo(origen) || !existeNodo(destino)) {
+    if (!existeNodo(origen)) {
         return resultado;
     }
 
-    map<int, double> mejorCosto;
-    map<int, int> anterior;
     priority_queue<pair<double, int>, vector<pair<double, int>>, greater<pair<double, int>>> colaPrioridad;
 
     for (const auto& nodoConAristas : adyacencia) {
-        mejorCosto[nodoConAristas.first] = numeric_limits<double>::infinity();
+        resultado.distancias[nodoConAristas.first] = numeric_limits<double>::infinity();
     }
 
-    mejorCosto[origen] = 0.0;
+    resultado.distancias[origen] = 0.0;
     colaPrioridad.push({0.0, origen});
 
     while (!colaPrioridad.empty()) {
@@ -208,49 +261,20 @@ ResultadoRuta Grafo::dijkstraGeneral(int origen, int destino, bool usarTiempo)  
         int nodoActual = colaPrioridad.top().second;
         colaPrioridad.pop();
 
-        if (costoActual > mejorCosto[nodoActual]) {
+        if (costoActual > resultado.distancias[nodoActual]) {
             continue;
         }
 
-        if (nodoActual == destino) {
-            break;
-        }
-
         for (const Arista& arista : getVecinos(nodoActual)) {
-            double peso = usarTiempo ? arista.tiempoSegundos : arista.distanciaMetros;
-            double nuevoCosto = costoActual + peso;
+            double nuevoCosto = costoActual + arista.distanciaMetros;
 
-            if (nuevoCosto < mejorCosto[arista.destino]) {
-                mejorCosto[arista.destino] = nuevoCosto;
-                anterior[arista.destino] = nodoActual;
+            if (nuevoCosto < resultado.distancias[arista.destino]) {
+                resultado.distancias[arista.destino] = nuevoCosto;
+                resultado.anteriores[arista.destino] = nodoActual;
                 colaPrioridad.push({nuevoCosto, arista.destino});
             }
         }
     }
 
-    if (mejorCosto[destino] == numeric_limits<double>::infinity()) {
-        return resultado;
-    }
-
-    resultado.costoTotal = mejorCosto[destino];
-    resultado.existeRuta = true;
-
-    int nodoActual = destino;
-    resultado.camino.push_back(nodoActual);
-
-    while (nodoActual != origen) {
-        nodoActual = anterior[nodoActual];
-        resultado.camino.push_back(nodoActual);
-    }
-
-    reverse(resultado.camino.begin(), resultado.camino.end());
     return resultado;
-}
-
-ResultadoRuta Grafo::rutaMasCortaPorDistancia(int origen, int destino)  {
-    return dijkstraGeneral(origen, destino, false);
-}
-
-ResultadoRuta Grafo::rutaMasRapidaPorTiempo(int origen, int destino)  {
-    return dijkstraGeneral(origen, destino, true);
 }

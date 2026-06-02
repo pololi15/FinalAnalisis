@@ -1,0 +1,8 @@
+1)g++ grafo.cpp alcance_vehicular.cpp -o alcance_vehicular.exe
+.\alcance_vehicular.exe
+
+
+3)g++ grafo.cpp diametro_vial.cpp -o diametro_vial.exe
+.\diametro_vial.exe
+4)g++ grafo.cpp mst_emergencia.cpp -o mst_emergencia.exe
+.\mst_emergencia.exe
